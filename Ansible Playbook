@@ -1,0 +1,51 @@
+Below is an example of an Ansible playbook to manage server configuration and deployment of the above 3-tier application
+---
+- name: Deploy 3-tier application
+  hosts: my_servers
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Install Docker Compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Ensure docker service is started
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Copy docker-compose.yml to server
+      copy:
+        src: ./docker-compose.yml
+        dest: /opt/myapp/docker-compose.yml
+
+    - name: Copy .env file to server
+      copy:
+        src: ./env
+        dest: /opt/myapp/.env
+
+    - name: Pull Docker images
+      docker_image:
+        name: "{{ item }}"
+        source: pull
+    - name: Start application
+      command: docker-compose up -d
+      args:
+        chdir: /opt/myapp
+
+    - name: Ensure application is running
+      docker_compose:
+        project_src: /opt/myapp
+        state: present
+
